@@ -1,4 +1,12 @@
 /*
+ * Modified by IoTBits (iot-bits.com) for use with the AudioSOM32 module and
+ * development board, based on the SGTL5000 NXP audio codec.
+ *
+ * Buy AudioSOM32 or find out more at:
+ * iot-bits.com/audiosom32
+ */
+
+/*
  * ESPRESSIF MIT License
  *
  * Copyright (c) 2018 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
@@ -67,6 +75,15 @@ static struct audio_hal audio_hal_codecs_default[] = {
         .audio_codec_config_iface = es8374_config_i2s,
         .audio_codec_set_volume = es8374_set_voice_volume,
         .audio_codec_get_volume = es8374_get_voice_volume,
+    },
+    // Added configuration for audiosom32
+    {
+        .audio_codec_initialize = audiosom32_init,
+        .audio_codec_deinitialize = audiosom32_deinit,
+        .audio_codec_ctrl = audiosom32_ctrl_state,
+        .audio_codec_config_iface = audiosom32_config_i2s,
+        .audio_codec_set_volume = audiosom32_set_voice_volume,
+        .audio_codec_get_volume = audiosom32_get_voice_volume,
     }
 };
 

@@ -1,4 +1,12 @@
 /*
+ * Modified by IoTBits (iot-bits.com) for use with the AudioSOM32 module and
+ * development board, based on the SGTL5000 NXP audio codec.
+ *
+ * Buy AudioSOM32 or find out more at:
+ * iot-bits.com/audiosom32
+ */
+
+/*
  * ESPRESSIF MIT License
  *
  * Copyright (c) 2018 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
@@ -50,6 +58,23 @@ typedef struct audio_hal* audio_hal_handle_t;
 };
 
 #define AUDIO_HAL_ES8374_DEFAULT(){                     \
+        .adc_input  = AUDIO_HAL_ADC_INPUT_LINE1,        \
+        .dac_output = AUDIO_HAL_DAC_OUTPUT_LINE1,       \
+        .codec_mode = AUDIO_HAL_CODEC_MODE_BOTH,        \
+        .i2s_iface = {                                  \
+            .mode = AUDIO_HAL_MODE_SLAVE,               \
+            .fmt = AUDIO_HAL_I2S_NORMAL,                \
+            .samples = AUDIO_HAL_48K_SAMPLES,           \
+            .bits = AUDIO_HAL_BIT_LENGTH_16BITS,        \
+        },                                              \
+};
+
+// Added to support AudioSOM32 default configuration on init
+// AUDIO_HAL_ADC_INPUT_LINE1 uses microphone input
+// AUDIO_HAL_ADC_INPUT_LINE2 uses line-in
+// AUDIO_HAL_DAC_OUTPUT_LINE1 uses headphone output
+// AUDIO_HAL_DAC_OUTPUT_LINE2 uses line-out
+#define AUDIO_HAL_AUDIOSOM32_DEFAULT(){                 \
         .adc_input  = AUDIO_HAL_ADC_INPUT_LINE1,        \
         .dac_output = AUDIO_HAL_DAC_OUTPUT_LINE1,       \
         .codec_mode = AUDIO_HAL_CODEC_MODE_BOTH,        \

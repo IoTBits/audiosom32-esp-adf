@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"xmemory0": "cpp",
+			"ios": "c",
+			"xiosbase": "c"
+		}
+	}
+}

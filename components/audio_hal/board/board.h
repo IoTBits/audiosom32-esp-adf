@@ -39,6 +39,9 @@ extern "C" {
 #include "lyrat_v4_2_board.h"
 #endif
 
+#ifdef CONFIG_AUDIOSOM32_MODULE
+#include "audiosom32_module.h"
+#endif
 
 #ifdef __cplusplus
 }
