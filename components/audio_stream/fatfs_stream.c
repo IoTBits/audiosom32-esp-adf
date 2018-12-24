@@ -37,12 +37,12 @@
 #include "audio_mem.h"
 #include "audio_element.h"
 #include "wav_head.h"
-// #include "esp_system.h"
 #include "esp_log.h"
 
 #define FILE_WAV_SUFFIX_TYPE  "wav"
 #define FILE_OPUS_SUFFIX_TYPE "opus"
 #define FILE_AMR_SUFFIX_TYPE "amr"
+#define FILE_AMRWB_SUFFIX_TYPE "Wamr"
 
 static const char *TAG = "FATFS_STREAM";
 
@@ -51,6 +51,7 @@ typedef enum {
     STREAM_TYPE_WAV,
     STREAM_TYPE_OPUS,
     STREAM_TYPE_AMR,
+    STREAM_TYPE_AMRWB,
 } wr_stream_type_t;
 
 typedef struct fatfs_stream {
@@ -74,6 +75,8 @@ static wr_stream_type_t get_type(const char *str)
             return STREAM_TYPE_OPUS;
         } else if (strncasecmp(relt, FILE_AMR_SUFFIX_TYPE, 3) == 0) {
             return STREAM_TYPE_AMR;
+        } else if (strncasecmp(relt, FILE_AMRWB_SUFFIX_TYPE, 4) == 0) {
+            return STREAM_TYPE_AMRWB;
         } else {
             return STREAM_TYPE_UNKNOW;
         }
@@ -89,7 +92,11 @@ static esp_err_t _fatfs_open(audio_element_handle_t self)
 
     audio_element_info_t info;
     char *uri = audio_element_get_uri(self);
-    ESP_LOGD(TAG, "_fatfs_open,   %s", uri);
+    if (uri == NULL) {
+        ESP_LOGE(TAG, "Error, uri is not set");
+        return ESP_FAIL;
+    }
+    ESP_LOGD(TAG, "_fatfs_open, uri:%s", uri);
     char *path = strstr(uri, "/sdcard");
     audio_element_getinfo(self, &info);
     if (path == NULL) {
@@ -121,6 +128,9 @@ static esp_err_t _fatfs_open(audio_element_handle_t self)
             fsync(fileno(fatfs->file));
         } else if (fatfs->file && (STREAM_TYPE_AMR == fatfs->w_type)) {
             fwrite("#!AMR\n", 1, 6, fatfs->file);
+            fsync(fileno(fatfs->file));
+        } else if (fatfs->file && (STREAM_TYPE_AMRWB == fatfs->w_type)) {
+            fwrite("#!AMR-WB\n", 1, 9, fatfs->file);
             fsync(fileno(fatfs->file));
         }
     } else {

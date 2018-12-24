@@ -424,7 +424,7 @@ _stream_open_begin:
 
     char *buffer = NULL;
     int post_len = esp_http_client_get_post_field(http->client, &buffer);
-
+_stream_redirect:
     if ((err = esp_http_client_open(http->client, post_len)) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to open http stream");
         return err;
@@ -451,7 +451,12 @@ _stream_open_begin:
 
     info.total_bytes = esp_http_client_fetch_headers(http->client);
     ESP_LOGD(TAG, "total_bytes=%d", (int)info.total_bytes);
-    if ((esp_http_client_get_status_code(http->client) != 200)
+    int status_code = esp_http_client_get_status_code(http->client);
+    if (status_code == 301 || status_code == 302) {
+        esp_http_client_set_redirection(http->client);
+        goto _stream_redirect;
+    }
+    if (status_code != 200
         && (esp_http_client_get_status_code(http->client) != 206)) {
         ESP_LOGE(TAG, "Invalid HTTP stream");
         if (http->enable_playlist_parser) {
@@ -524,6 +529,7 @@ static int _http_process(audio_element_handle_t self, char *in_buffer, int in_le
     int w_size = 0;
     if (r_size > 0) {
         w_size = audio_element_output(self, in_buffer, r_size);
+        audio_element_multi_output(self, in_buffer, r_size, 0);
     } else {
         w_size = r_size;
     }
@@ -593,6 +599,7 @@ audio_element_handle_t http_stream_init(http_stream_cfg_t *config)
     cfg.task_prio = config->task_prio;
     cfg.task_core = config->task_core;
     cfg.out_rb_size = config->out_rb_size;
+    cfg.enable_multi_io = true;
     cfg.tag = "http";
 
     http->type = config->type;
