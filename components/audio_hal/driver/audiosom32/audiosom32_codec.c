@@ -53,7 +53,7 @@ static i2c_config_t as32_i2c_conf = {
 • Send two bytes for the 16 bits of data to be written to the register (most significant byte first)
 • Stop condition
 */
-esp_err_t audiobit_write_reg (i2c_port_t i2c_num, uint16_t reg_addr, uint16_t reg_val)
+esp_err_t as32_write_reg (i2c_port_t i2c_num, uint16_t reg_addr, uint16_t reg_val)
 {
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     uint8_t dwr[4];
@@ -93,7 +93,7 @@ esp_err_t audiobit_write_reg (i2c_port_t i2c_num, uint16_t reg_addr, uint16_t re
 • Read two bytes from the addressed register (most significant byte first)
 • Stop condition
 */
-esp_err_t audiobit_read_reg (i2c_port_t i2c_num, uint16_t reg_addr, uint16_t *reg_val)
+esp_err_t as32_read_reg (i2c_port_t i2c_num, uint16_t reg_addr, uint16_t *reg_val)
 {
     uint8_t *byte_val = reg_val;		// This will cause warning, please ignore
     esp_err_t ret;
@@ -125,6 +125,20 @@ esp_err_t audiobit_read_reg (i2c_port_t i2c_num, uint16_t reg_addr, uint16_t *re
     ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
     return ret;
+}
+
+esp_err_t as32_write_reg_mask (i2c_port_t i2c_num, uint16_t reg_addr, uint16_t mask, uint16_t val)
+{
+    uint16_t read_val;
+    // Read the concerned register
+    if (as32_read_reg (i2c_num, reg_addr, &read_val) != ESP_OK)
+        return ESP_FAIL;
+    
+    read_val &= ~mask;
+    read_val |= val;
+
+    if (as32_write_reg (i2c_num, reg_addr, read_val) != ESP_OK)
+        return ESP_FAIL;
 }
 
 /**
@@ -218,53 +232,69 @@ int as32_power_control(as32_block_t block, bool en)
  *     - (-1)  Error
  *     - (0)   Success
  */
-int es8388_i2s_config_clock(es_i2s_clock_t cfg)
+int as32_i2s_config_clock(as32_i2s_clock_t cfg)
 {
     // ????
 }
 
 /**
+ * @brief Initialize audioSOM32 codec chip
+ * Sets up the codec as configured in argument
+ * Physical interfaces are set up here
+ * 
+ * @param cfg configuration of audiosom32 codec
+ *
  * @return
- *     - (-1)  Error
- *     - (0)   Success
+ *     - ESP_OK
+ *     - ESP_FAIL
  */
-esp_err_t es8388_init(audio_hal_codec_config_t *cfg)
+esp_err_t as32_init(audio_hal_codec_config_t *cfg)
 {
 
 }
 
 /**
- * @brief Configure ES8388 I2S format
+ * @brief Configure audiosom32 I2S format
+ * Config I2S format related registers in codec
  *
- * @param mode:           set ADC or DAC or all
- * @param bitPerSample:   see Es8388I2sFmt
- *
- * @return
- *     - (-1) Error
- *     - (0)  Success
- */
-int es8388_config_fmt(es_module_t mode, es_i2s_fmt_t fmt)
-
-/**
- * @param volume: 0 ~ 100
+ * @param cfg:   audiosom32 I2S format
  *
  * @return
- *     - (-1)  Error
- *     - (0)   Success
+ *     - ESP_OK
+ *     - ESP_FAIL
  */
-int es8388_set_voice_volume(int volume)
+esp_err_t as32_config_fmt(es_i2s_fmt_t cfg);
 {
 
 }
 
 /**
+ * @brief  Set voice volume (0-100)
+ * Set the ADC volume levels
+ *
+ * @param volume:  voice volume (0~100)
  *
  * @return
- *           volume
+ *     - ESP_OK
+ *     - ESP_FAIL
  */
-int es8388_get_voice_volume(int *volume)
+esp_err_t as32_set_volume(as32_block_t block, int volume)
 {
 
+}
+
+/**
+ * @brief Get voice volume, 0-100
+ * Return the ADC volume
+ *
+ * @param[out] *volume:  voice volume (0~100)
+ *
+ * @return
+ *     - ESP_OK
+ *     - ESP_FAIL
+ */
+esp_err_t as32_get_volume(as32_block_t block, int *volume)
+{
 }
 
 /**
@@ -277,78 +307,176 @@ int es8388_get_voice_volume(int *volume)
  *     - (-1) Parameter error
  *     - (0)   Success
  */
-int es8388_set_bits_per_sample(es_module_t mode, es_bits_length_t bits_length)
+esp_err_t as32_set_bits_per_sample(as32_bits_length_t bits_length)
+{
+    return as32_write_reg_mask (AS32_CODEC_I2C_NUM, AS32_CHIP_I2S_CTRL, 0x3<<4, bits_length);
+}
+
+/**
+ * @brief Configure audiosom32 DAC mute mode
+ * Mute the codec DACs
+ *
+ * @param enable enable(1) or disable(0)
+ *
+ * @return
+ *     - ESP_FAIL Parameter error
+ *     - ESP_OK   Success
+ */
+esp_err_t as32_set_mute(as32_mute_t mute)
+{
+    esp_err_t err;
+
+    if (mute & (1<<MUTE_ADC))
+    {
+        // Mute ADC
+        err = as32_write_reg_mask (AS32_CODEC_I2C_NUM, AS32_CHIP_ANA_CTRL, (1<<MUTE_ADC), (1<<MUTE_ADC));
+        if (err != ESP_OK)
+            return ESP_FAIL;
+    }
+    else if (mute & (1<<MUTE_ADC))
+    {
+        // Mute the HP
+        err = as32_write_reg_mask (AS32_CODEC_I2C_NUM, AS32_CHIP_ANA_CTRL, (1<<MUTE_HP), (1<<MUTE_HP));
+        if (err != ESP_OK)
+            return ESP_FAIL;
+    }
+    else if (mute & (1<<MUTE_LO))
+    {
+        // Mute LO
+        err = as32_write_reg_mask (AS32_CODEC_I2C_NUM, AS32_CHIP_ANA_CTRL, (1<<MUTE_LO), (1<<MUTE_LO));
+        if (err != ESP_OK)
+            return ESP_FAIL;
+    }
+    else
+    {
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+/**
+ * @brief Get audiosom32 DAC mute status
+ * Return codec ADC mute status
+ *
+ * @return
+ *     - -1 Parameter error
+ *     - 0 voice mute disable
+ *     - 1 voice mute enable
+ */
+esp_err_t as32_get_mute(as32_mute_t *mute)
+{
+    uint16_t read_val;
+
+    if (as32_read_reg (AS32_CODEC_I2C_NUM, AS32_CHIP_ANA_CTRL, &read_val) != ESP_OK)
+        return ESP_FAIL;
+
+    *mute = read_val & ((1<<MUTE_ADC) | (1<<MUTE_HP) | (1<<MUTE_LO));
+    return ESP_OK;
+}
+
+/**
+ * @brief Set audiosom32 DAC output mode
+ * Configure the DAC input source
+ *
+ * @param output dac output mode
+ *
+ * @return
+ *     - ESP_FAIL Parameter error
+ *     - ESP_OK   Success
+ */
+esp_err_t as32_config_dac_output(as32_dac_output_t output)
+{
+    switch (output)
+    {
+        case DAC_OUTPUT_HP:
+            return as32_write_reg_mask (AS32_CODEC_I2C_NUM, AS32_CHIP_ANA_CTRL, 0x1 << 6, 0);
+        break;
+
+        case DAC_OUTPUT_LINEOUT:
+            // Always connected to Line Out
+            return ESP_OK;
+        break;
+
+        case DAC_OUTPUT_ALL:
+            return as32_write_reg_mask (AS32_CODEC_I2C_NUM, AS32_CHIP_ANA_CTRL, 0x1 << 6, 0);
+        break;
+
+        default:
+            return ESP_FAIL;
+        break;
+    }
+}
+
+/**
+ * @brief Set audiosom32 ADC input mode
+ * Configure the input signal source for ADC
+ *
+ * @param input adc input mode
+ *
+ * @return
+ *     - ESP_FAIL Parameter error
+ *     - ESP_OK   Success
+ */
+esp_err_t as32_config_adc_input(as32_adc_input_t input)
+{
+    return as32_write_reg_mask (AS32_CODEC_I2C_NUM, AS32_CHIP_ANA_CTRL, 0x1 << 2, input << 2);
+}
+
+/**
+ * @brief Set audiosom32 mic gain
+ * Set MIC gain in dB at codec
+ *
+ * @param gain db of mic gain
+ *
+ * @return
+ *     - ESP_FAIL Parameter error
+ *     - ESP_OK   Success
+ */
+esp_err_t as32_set_mic_gain(as32_mic_gain_t gain)
+{
+    // Write 0x002A, bits 1:0
+    return as32_write_reg_mask (AS32_CODEC_I2C_NUM, AS32_CHIP_MIC_CTRL, 0x0003, gain);
+}
+
+/**
+ * @brief Control audiosom32 codec chip
+ *
+ * @param mode codec mode
+ * @param ctrl_state start or stop decode or encode progress
+ *
+ * @return
+ *     - ESP_FAIL Parameter error
+ *     - ESP_OK   Success
+ */
+esp_err_t as32_ctrl_state(audio_hal_codec_mode_t mode, audio_hal_ctrl_t ctrl_state)
 {
 
 }
 
 /**
- * @brief Configure ES8388 DAC mute or not. Basicly you can use this function to mute the output or don't
+ * @brief Configure audiosom32 codec mode and I2S interface
  *
- * @param enable: enable or disable
+ * @param mode codec mode
+ * @param iface I2S config
  *
  * @return
- *     - (-1) Parameter error
- *     - (0)   Success
+ *     - ESP_FAIL Parameter error
+ *     - ESP_OK   Success
  */
-int es8388_set_voice_mute(int enable)
-{
-
-}
-
-int es8388_get_voice_mute(void)
+esp_err_t as32_config_i2s(audio_hal_codec_mode_t mode, audio_hal_codec_i2s_iface_t *iface)
 {
 
 }
 
 /**
- * @param gain: Config DAC Output
+ * @brief Set audiosom32 PA power
+ *
+ * @param enable true for enable PA power, false for disable PA power
  *
  * @return
- *     - (-1) Parameter error
- *     - (0)   Success
+ *     - void
  */
-int es8388_config_dac_output(int output)
-{
-
-}
-
-
-/**
- * @param gain: Config ADC input
- *
- * @return
- *     - (-1) Parameter error
- *     - (0)   Success
- */
-int es8388_config_adc_input(es_adc_input_t input)
-{
-
-}
-
-/**
- * @param gain: see es_mic_gain_t
- *
- * @return
- *     - (-1) Parameter error
- *     - (0)   Success
- */
-int es8388_set_mic_gain(es_mic_gain_t gain)
-{
-
-}
-
-int es8388_ctrl_state(audio_hal_codec_mode_t mode, audio_hal_ctrl_t ctrl_state)
-{
-
-}
-
-int es8388_config_i2s(audio_hal_codec_mode_t mode, audio_hal_codec_i2s_iface_t *iface)
-{
-
-}
-
-void es8388_pa_power(bool enable)
+void as32_pa_power(bool enable)
 {
 
 }

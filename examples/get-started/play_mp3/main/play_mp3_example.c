@@ -7,6 +7,10 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
+/*
+    Modified by IoTBits to support audioSOM32 Carrier V3.
+*/
+
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -49,17 +53,27 @@ void app_main(void)
 {
     audio_pipeline_handle_t pipeline;
     audio_element_handle_t i2s_stream_writer, mp3_decoder;
+
     esp_log_level_set("*", ESP_LOG_WARN);
     esp_log_level_set(TAG, ESP_LOG_INFO);
+    
     ESP_LOGI(TAG, "[ 1 ] Start audio codec chip");
+
 #if (CONFIG_ESP_LYRAT_V4_3_BOARD || CONFIG_ESP_LYRAT_V4_2_BOARD)
     audio_hal_codec_config_t audio_hal_codec_cfg = AUDIO_HAL_ES8388_DEFAULT();
     audio_hal_handle_t hal = audio_hal_init(&audio_hal_codec_cfg, 0);
 #endif
+
 #if (CONFIG_ESP_LYRATD_MSC_V2_1_BOARD || CONFIG_ESP_LYRATD_MSC_V2_2_BOARD)
     audio_hal_codec_config_t audio_hal_codec_cfg = AUDIO_HAL_ZL38063_DEFAULT();
     audio_hal_handle_t hal = audio_hal_init(&audio_hal_codec_cfg, 2);
 #endif
+
+#if (CONFIG_AUDIOSOM32_CARRIER_V3)
+    audio_hal_codec_config_t audio_hal_codec_cfg = AUDIO_HAL_AUDIOSOM32_DEFAULT();
+    audio_hal_handle_t hal = audio_hal_init (&audio_hal_codec_config, 3);
+#endif
+
     audio_hal_ctrl_codec(hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
 
     ESP_LOGI(TAG, "[ 2 ] Create audio pipeline, add all elements to pipeline, and subscribe pipeline event");

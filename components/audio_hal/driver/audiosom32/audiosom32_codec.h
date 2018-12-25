@@ -111,6 +111,7 @@ typedef enum{
     AS32_MODE_MAX
 } as32_mode_t;
 
+// I2S data format
 typedef enum {
     AS32_I2S_MIN = -1,
     AS32_I2S_NORMAL = 0,
@@ -120,19 +121,117 @@ typedef enum {
     AS32_I2S_MAX
 } as32_i2s_fmt_t;
 
+// I2S bits per sample
+typedef enum {
+    BIT_LENGTH_MIN =    -1,
+    BIT_LENGTH_16BITS = 0x3,
+    BIT_LENGTH_20BITS = 0x2,
+    BIT_LENGTH_24BITS = 0x1,
+    BIT_LENGTH_32BITS = 0x0,
+    BIT_LENGTH_MAX
+} as32_bits_length_t;
+
+typedef enum {
+    D2SE_PGA_GAIN_MIN = -1,
+    D2SE_PGA_GAIN_DIS = 0,
+    D2SE_PGA_GAIN_EN = 1,
+    D2SE_PGA_GAIN_MAX =2,
+} as32_pga_t;
+
+// Input sources for ADC
+typedef enum {
+    ADC_INPUT_MIN =     -1,
+    ADC_INPUT_MIC =    0x0,
+    ADC_INPUT_LINEIN = 0x1,
+    ADC_INPUT_MAX,
+} as32_adc_input_t;
+
+// Output channels for the DAC
+typedef enum {
+    DAC_OUTPUT_MIN =        -1,
+    DAC_OUTPUT_HP =         0x1,
+    DAC_OUTPUT_LINEOUT =    0x2,
+    DAC_OUTPUT_ALL   =      0x3,
+    DAC_OUTPUT_MAX,
+} as32_dac_output_t;
+
+typedef enum {
+    MIC_GAIN_MIN = -1,
+    MIC_GAIN_0DB =  0x0,
+    MIC_GAIN_20DB = 0x1,
+    MIC_GAIN_30DB = 0x2,
+    MIC_GAIN_40DB = 0x3,
+    MIC_GAIN_MAX,
+} as32_mic_gain_t;
+
+typedef enum {
+    ES_MODULE_MIN = -1,
+    ES_MODULE_ADC = 0x01,
+    ES_MODULE_DAC = 0x02,
+    ES_MODULE_ADC_DAC = 0x03,
+    ES_MODULE_LINE = 0x04,
+    ES_MODULE_MAX
+} as32_module_t;
+
+/*
+typedef enum {
+    MUTE_MIN =  -1,
+    MUTE_ADC =  0x0,
+    MUTE_HP =   0x4,
+    MUTE_LO =   0x8,
+    MUTE_MAX
+} as32_block_t;
+*/
+
+typedef enum {
+    BLOCK_MIN =     -1,
+    BLOCK_MIC =     0,
+    BLOCK_LINEIN =  1,
+    BLOCK_ADC =     2,
+    BLOCK_DAP =     3,
+    BLOCK_DAC =     4,
+    BLOCK_HP =      5,
+    BLOCK_LINEOUT = 6,
+    BLOCK_MAX
+} as32_block_t;
+
+typedef enum {
+    ES_MODE_MIN = -1,
+    ES_MODE_SLAVE = 0x00,
+    ES_MODE_MASTER = 0x01,
+    ES_MODE_MAX,
+} as32_mode_t;
+
+typedef enum {
+    ES_I2S_MIN = -1,
+    ES_I2S_NORMAL = 0,
+    ES_I2S_LEFT = 1,
+    ES_I2S_RIGHT = 2,
+    ES_I2S_DSP = 3,
+    ES_I2S_MAX
+} as32_i2s_fmt_t;
+
+typedef struct {
+    es_sclk_div_t sclk_div;    /*!< bits clock divide */
+    es_lclk_div_t lclk_div;    /*!< WS clock divide */
+} as32_i2s_clock_t;
+
 /**
  * @brief Initialize audioSOM32 codec chip
- *
+ * Sets up the codec as configured in argument
+ * Physical interfaces are set up here
+ * 
  * @param cfg configuration of audiosom32 codec
  *
  * @return
  *     - ESP_OK
  *     - ESP_FAIL
  */
-esp_err_t as32_codec_init(audio_hal_codec_config_t *cfg);
+esp_err_t as32_init(audio_hal_codec_config_t *cfg);
 
 /**
  * @brief Deinitialize audioSOM32 codec chip
+ * Resets the codec config and returns it to POR defaults
  *
  * @return
  *     - ESP_OK
@@ -142,18 +241,19 @@ esp_err_t as32_codec_deinit(void);
 
 /**
  * @brief Configure audiosom32 I2S format
+ * Config I2S format related registers in codec
  *
- * @param mod:  set ADC or DAC or both
  * @param cfg:   audiosom32 I2S format
  *
  * @return
  *     - ESP_OK
  *     - ESP_FAIL
  */
-esp_err_t as32_config_fmt(es_module_t mod, es_i2s_fmt_t cfg);
+esp_err_t as32_config_fmt(as32_i2s_fmt_t cfg);
 
 /**
  * @brief Configure I2s clock in master mode
+ * Configure all ESP32 timed signals based on settings
  *
  * @param cfg:  set bits clock and WS clock
  *
@@ -165,18 +265,18 @@ esp_err_t as32_i2s_config_clock(es_i2s_clock_t cfg);
 
 /**
  * @brief Configure audiosom32 data sample bits
- *
- * @param mode:  set ADC or DAC or both
+ * Set sample length in the codec, applies to all DAC, ADC, etc
  * @param bit_per_sample:  bit number of per sample
  *
  * @return
  *     - ESP_OK
  *     - ESP_FAIL
  */
-esp_err_t as32_set_bits_per_sample(es_module_t mode, es_bits_length_t bit_per_sample);
+esp_err_t as32_set_bits_per_sample(es_bits_length_t bit_per_sample);
 
 /**
- * @brief  Start up as32 codec chip
+ * @brief  Start up as32 codec chip modules
+ * Power on and activate codec modules based on mode input
  *
  * @param mode:  set ADC or DAC or both
  *
@@ -188,6 +288,7 @@ esp_err_t as32_start(es_module_t mode);
 
 /**
  * @brief  Stop audiosom32 codec chip
+ * Power off modules based on input
  *
  * @param mode:  set ADC or DAC or both
  *
@@ -199,6 +300,7 @@ esp_err_t as32_stop(es_module_t mode);
 
 /**
  * @brief  Set voice volume
+ * Set the ADC volume levels
  *
  * @param volume:  voice volume (0~100)
  *
@@ -209,7 +311,8 @@ esp_err_t as32_stop(es_module_t mode);
 esp_err_t as32_set_voice_volume(int volume);
 
 /**
- * @brief Get voice volume
+ * @brief Get voice volume, 0-100
+ * Return the ADC volume
  *
  * @param[out] *volume:  voice volume (0~100)
  *
@@ -221,6 +324,7 @@ esp_err_t as32_get_voice_volume(int *volume);
 
 /**
  * @brief Configure audiosom32 DAC mute mode
+ * Mute the codec ADCs
  *
  * @param enable enable(1) or disable(0)
  *
@@ -232,6 +336,7 @@ esp_err_t as32_set_voice_mute(int enable);
 
 /**
  * @brief Get audiosom32 DAC mute status
+ * Return codec ADC mute status
  *
  * @return
  *     - -1 Parameter error
@@ -242,6 +347,7 @@ esp_err_t as32_get_voice_mute(void);
 
 /**
  * @brief Set audiosom32 mic gain
+ * Set MIC gain in dB at codec
  *
  * @param gain db of mic gain
  *
@@ -249,10 +355,11 @@ esp_err_t as32_get_voice_mute(void);
  *     - ESP_FAIL Parameter error
  *     - ESP_OK   Success
  */
-esp_err_t as32_set_mic_gain(es_mic_gain_t gain);
+esp_err_t as32_set_mic_gain(as32_mic_gain_t gain);
 
 /**
  * @brief Set audiosom32 ADC input mode
+ * Configure the input signal source for ADC
  *
  * @param input adc input mode
  *
@@ -260,10 +367,11 @@ esp_err_t as32_set_mic_gain(es_mic_gain_t gain);
  *     - ESP_FAIL Parameter error
  *     - ESP_OK   Success
  */
-esp_err_t as32_config_adc_input(es_adc_input_t input);
+esp_err_t as32_config_adc_input(as32_adc_input_t input);
 
 /**
  * @brief Set audiosom32 DAC output mode
+ * Configure the DAC input source
  *
  * @param output dac output mode
  *
@@ -271,27 +379,7 @@ esp_err_t as32_config_adc_input(es_adc_input_t input);
  *     - ESP_FAIL Parameter error
  *     - ESP_OK   Success
  */
-esp_err_t as32_config_dac_output(es_dac_output_t output);
-
-/**
- * @brief Write audiosom32 codec register
- *
- * @param reg_add address of register
- * @param data data of register
- *
- * @return
- *     - ESP_FAIL Parameter error
- *     - ESP_OK   Success
- */
-esp_err_t as32_write_reg(uint8_t reg_add, uint8_t data);
-
-/**
- * @brief Print all audiosom32 codec registers
- *
- * @return
- *     - void
- */
-void as32_read_all();
+esp_err_t as32_config_dac_output(as32_dac_output_t output);
 
 /**
  * @brief Configure audiosom32 codec mode and I2S interface

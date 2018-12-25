@@ -47,8 +47,8 @@ extern "C" {
 #include "lyratd_msc_v2_2_board.h"
 #endif
 
-#ifdef CONFIG_AUDIOSOM32_MODULE
-#include "audiosom32_module.h"
+#ifdef CONFIG_AUDIOSOM32_CARRIER_V3
+#include "audiosom32_carrier_v3.h"
 #endif
 
 #ifdef __cplusplus
